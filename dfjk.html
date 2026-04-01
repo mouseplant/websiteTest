@@ -462,17 +462,18 @@ function showCombo(txt) {
 }
 
 function levelUp() {
-  const newLevel = Math.floor(score / 800) + 1;
-  if (newLevel > level) {
-    level = newLevel;
-    // 레벨이 오를 때마다 속도가 1.1배씩 빨라짐 (시간 간격은 1.1로 나눔)
-    spawnInterval = BASE_INTERVAL / Math.pow(1.05, level - 1);
-    
-    clearInterval(spawnTimer);
-    spawnTimer = setInterval(spawnTile, spawnInterval);
-    showMsg(`레벨 ${level} 업!`, 'combo');
-    updateHUD();
-  }
+  const newLevel = Math.floor(score / 800) + 1;
+  if (newLevel > level) {
+    level = newLevel;
+    
+    // 감소율 0.85: 레벨이 오를 때마다 '한계 속도까지 남은 시간'이 15%씩 줄어듦
+    spawnInterval = MIN_INTERVAL + (BASE_INTERVAL - MIN_INTERVAL) * Math.pow(0.85, level - 1);
+    
+    clearInterval(spawnTimer);
+    spawnTimer = setInterval(spawnTile, spawnInterval);
+    showMsg(`레벨 ${level} 업!`, 'combo');
+    updateHUD();
+  }
 }
 
 function gameOver(reason) {
