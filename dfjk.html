@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DFJK 큐 게임</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+KR:wght@400;700&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --panel: #1a1a24;
+    --border: #2a2a3a;
+    --accent-d: #4fc3f7;
+    --accent-f: #a5d6a7;
+    --accent-j: #ffcc80;
+    --accent-k: #f48fb1;
+    --text: #e8e8f0;
+    --muted: #6b6b85;
+    --danger: #ef5350;
+    --success: #66bb6a;
+    --lane-w: 320px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 24px 16px 40px;
+    overflow-x: hidden;
+  }
+
+  /* grid scanlines */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.015) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255,255,255,0.015) 40px);
+    pointer-events: none; z-index: 0;
+  }
+
+  #app { position: relative; z-index: 1; width: 100%; max-width: 420px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+
+  h1 {
+    font-size: 28px; font-weight: 700; letter-spacing: 6px;
+    color: var(--text);
+    text-shadow: 0 0 30px rgba(79,195,247,0.4);
+  }
+
+  /* HUD */
+  #hud {
+    width: 100%; display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+  .hud-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .hud-label { font-size: 10px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+  .hud-val { font-size: 22px; font-weight: 700; }
+  #score-val { color: var(--accent-d); }
+  #level-val { color: var(--accent-j); }
+  #lives-val { color: var(--danger); letter-spacing: 2px; }
+
+  /* Queue bar */
+  #queue-bar-wrap {
+    width: 100%; display: flex; flex-direction: column; gap: 4px;
+  }
+  #queue-bar-info { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+  #queue-bar-bg {
+    width: 100%; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
+  }
+  #queue-bar-fill {
+    height: 100%; width: 0%; border-radius: 3px;
+    background: var(--success);
+    transition: width 0.15s, background 0.15s;
+  }
+
+  /* Lane */
+  #lane-container {
+    width: var(--lane-w);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  #lane-scroll {
+    width: 100%;
+    height: 440px;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 8px 0 0;
+  }
+
+  /* tiles stack from bottom */
+  #tile-stack {
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: center;
+    gap: 6px;
+    padding: 0 24px 8px;
+    min-height: 100%;
+    justify-content: flex-start;
+  }
+
+  .tile {
+    width: 100%;
+    height: 50px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    flex-shrink: 0;
+    animation: fall-in 0.12s ease-out;
+    transition: transform 0.05s, opacity 0.08s;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .tile.d { background: rgba(79,195,247,0.15); color: var(--accent-d); }
+  .tile.f { background: rgba(165,214,167,0.15); color: var(--accent-f); }
+  .tile.j { background: rgba(255,204,128,0.15); color: var(--accent-j); }
+  .tile.k { background: rgba(244,143,177,0.15); color: var(--accent-k); }
+
+  .tile.removing {
+    transform: scaleX(0) scaleY(0.5);
+    opacity: 0;
+    transition: transform 0.1s, opacity 0.1s;
+  }
+
+  @keyframes fall-in {
+    from { transform: translateY(-24px) scale(0.9); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+  }
+
+  /* Key display */
+  #key-panel {
+    width: var(--lane-w);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--border);
+    border-radius: 0 0 12px 12px;
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+  }
+  .key-btn {
+    padding: 14px 0;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    cursor: pointer;
+    border: none; background: none;
+    font-family: inherit;
+    position: relative;
+    transition: background 0.08s;
+    border-right: 1px solid var(--border);
+  }
+  .key-btn:last-child { border-right: none; }
+  .key-btn:hover { background: rgba(255,255,255,0.04); }
+  .key-btn.active { background: rgba(255,255,255,0.08); }
+  .key-letter {
+    font-size: 18px; font-weight: 700;
+    transition: transform 0.06s;
+  }
+  .key-btn.active .key-letter { transform: scale(1.2); }
+  .key-d .key-letter { color: var(--accent-d); }
+  .key-f .key-letter { color: var(--accent-f); }
+  .key-j .key-letter { color: var(--accent-j); }
+  .key-k .key-letter { color: var(--accent-k); }
+  .key-count { font-size: 10px; color: var(--muted); }
+
+  /* Miss flash */
+  #miss-flash {
+    position: fixed; inset: 0; background: rgba(239,83,80,0.18);
+    pointer-events: none; opacity: 0; z-index: 100;
+    transition: opacity 0.05s;
+  }
+  #miss-flash.show { opacity: 1; }
+
+  /* Message */
+  #msg {
+    font-size: 14px; color: var(--muted); letter-spacing: 1px;
+    min-height: 20px; text-align: center;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  #msg.good { color: var(--success); }
+  #msg.bad { color: var(--danger); }
+  #msg.combo { color: var(--accent-j); }
+
+  /* Overlay */
+  #overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(10,10,15,0.88);
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  #overlay.show { display: flex; }
+  #overlay-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 40px 48px;
+    text-align: center;
+    display: flex; flex-direction: column; gap: 20px;
+    align-items: center;
+  }
+  #overlay-title { font-size: 26px; font-weight: 700; letter-spacing: 4px; }
+  #overlay-score { font-size: 42px; font-weight: 700; color: var(--accent-d); }
+  #overlay-sub { font-size: 13px; color: var(--muted); font-family: 'Noto Sans KR'; }
+  #start-btn {
+    padding: 12px 36px; font-size: 15px; font-weight: 700;
+    letter-spacing: 2px; border-radius: 8px;
+    border: 1px solid var(--accent-d);
+    background: rgba(79,195,247,0.1);
+    color: var(--accent-d); cursor: pointer;
+    font-family: 'Space Mono'; transition: background 0.15s;
+  }
+  #start-btn:hover { background: rgba(79,195,247,0.22); }
+
+  /* combo popup */
+  #combo-pop {
+    position: fixed; top: 40%; left: 50%; transform: translateX(-50%);
+    font-size: 28px; font-weight: 700; color: var(--accent-j);
+    pointer-events: none; opacity: 0; z-index: 300;
+    text-shadow: 0 0 20px rgba(255,204,128,0.7);
+    transition: opacity 0.1s, top 0.4s;
+  }
+  #combo-pop.show {
+    opacity: 1; top: 36%;
+    animation: combo-rise 0.6s ease-out forwards;
+  }
+  @keyframes combo-rise {
+    0% { opacity:1; transform: translateX(-50%) scale(1.2); }
+    60% { opacity:1; transform: translateX(-50%) scale(1); }
+    100% { opacity:0; transform: translateX(-50%) scale(0.9); }
+  }
+</style>
+</head>
+<body>
+
+<div id="miss-flash"></div>
+<div id="combo-pop"></div>
+
+<div id="overlay" class="show">
+  <div id="overlay-box">
+    <div id="overlay-title">DFJK GAME</div>
+    <div style="font-size:13px;color:var(--muted);font-family:'Noto Sans KR';line-height:1.8;">
+      위에서 내려오는 타일의 키를 눌러 제거하세요<br>
+      큐가 <b style="color:var(--danger)">20개</b> 이상 쌓이거나<br>
+      <b style="color:var(--danger)">생명 5개</b>를 모두 잃으면 게임 오버!
+    </div>
+    <div id="overlay-score" style="display:none">0</div>
+    <div id="overlay-sub"></div>
+    <button id="start-btn" onclick="startGame()">START</button>
+  </div>
+</div>
+
+<div id="app">
+  <h1>DFJK</h1>
+
+  <div id="hud">
+    <div class="hud-card">
+      <div class="hud-label">SCORE</div>
+      <div class="hud-val" id="score-val">0</div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-label">LEVEL</div>
+      <div class="hud-val" id="level-val">1</div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-label">LIVES</div>
+      <div class="hud-val" id="lives-val">♥♥♥♥♥</div>
+    </div>
+  </div>
+
+  <div id="queue-bar-wrap">
+    <div id="queue-bar-info">
+      <span>큐 사용량</span>
+      <span id="queue-count-txt">0 / 20</span>
+    </div>
+    <div id="queue-bar-bg"><div id="queue-bar-fill"></div></div>
+  </div>
+
+  <div id="lane-container">
+    <div id="lane-scroll">
+      <div id="tile-stack"></div>
+    </div>
+  </div>
+
+  <div id="key-panel">
+    <button class="key-btn key-d" onclick="pressKey('d')">
+      <span class="key-letter">D</span>
+      <span class="key-count" id="cnt-d">0</span>
+    </button>
+    <button class="key-btn key-f" onclick="pressKey('f')">
+      <span class="key-letter">F</span>
+      <span class="key-count" id="cnt-f">0</span>
+    </button>
+    <button class="key-btn key-j" onclick="pressKey('j')">
+      <span class="key-letter">J</span>
+      <span class="key-count" id="cnt-j">0</span>
+    </button>
+    <button class="key-btn key-k" onclick="pressKey('k')">
+      <span class="key-letter">K</span>
+      <span class="key-count" id="cnt-k">0</span>
+    </button>
+  </div>
+
+  <div id="msg"></div>
+</div>
+
+<script>
+const KEYS = ['d','f','j','k'];
+const MAX_Q = 20;
+const MAX_LIVES = 5;
+const BASE_INTERVAL = 600; // 1400 / 1.5
+
+let queue = [];     // { key, id }
+let counts = {d:0, f:0, j:0, k:0};
+let score = 0, combo = 0, level = 1, lives = MAX_LIVES;
+let running = false;
+let spawnTimer = null;
+let spawnInterval = BASE_INTERVAL;
+let tileId = 0;
+let msgTimer = null, comboTimer = null;
+
+function livesStr(n) {
+  return '♥'.repeat(n) + '♡'.repeat(MAX_LIVES - n);
+}
+
+function updateHUD() {
+  document.getElementById('score-val').textContent = score;
+  document.getElementById('level-val').textContent = level;
+  document.getElementById('lives-val').textContent = livesStr(lives);
+  const total = queue.length;
+  document.getElementById('queue-count-txt').textContent = `${total} / ${MAX_Q}`;
+  const pct = (total / MAX_Q) * 100;
+  const fill = document.getElementById('queue-bar-fill');
+  fill.style.width = pct + '%';
+  fill.style.background = pct < 50 ? '#66bb6a' : pct < 75 ? '#ffa726' : '#ef5350';
+
+  // update per-key counts
+  KEYS.forEach(k => {
+    document.getElementById('cnt-'+k).textContent = counts[k];
+  });
+}
+
+function renderTiles() {
+  const stack = document.getElementById('tile-stack');
+  stack.innerHTML = '';
+  // queue[0] = bottom (oldest), queue[last] = top (newest)
+  // column-reverse makes index 0 show at bottom
+  queue.forEach(t => {
+    const div = document.createElement('div');
+    div.className = 'tile ' + t.key;
+    div.textContent = t.key.toUpperCase();
+    div.id = 'tile-' + t.id;
+    stack.appendChild(div);
+  });
+}
+
+function spawnTile() {
+  if (!running) return;
+  if (queue.length >= MAX_Q) { gameOver('큐 초과!'); return; }
+  const k = KEYS[Math.floor(Math.random() * KEYS.length)];
+  const id = tileId++;
+  queue.push({ key: k, id });
+  counts[k]++;
+  renderTiles();
+  updateHUD();
+  if (queue.length >= MAX_Q) { gameOver('큐 초과!'); }
+}
+
+function pressKey(k) {
+  if (!running) return;
+
+  // flash key button
+  const btn = document.querySelector('.key-btn.key-' + k);
+  btn.classList.add('active');
+  setTimeout(() => btn.classList.remove('active'), 110);
+
+  // bottom tile = queue[0]
+  if (queue.length === 0) {
+    loseLife('빈 큐에 잘못된 키!');
+    return;
+  }
+
+  const bottomTile = queue[0];
+  if (bottomTile.key !== k) {
+    loseLife(`틀린 키! (필요: ${bottomTile.key.toUpperCase()})`);
+    return;
+  }
+
+  // correct!
+  // animate removal
+  const tileEl = document.getElementById('tile-' + bottomTile.id);
+  if (tileEl) tileEl.classList.add('removing');
+  counts[k]--;
+  queue.shift();
+
+  setTimeout(() => {
+    renderTiles();
+    updateHUD();
+  }, 110);
+
+  combo++;
+  score += 10 * combo;
+  if (combo >= 5) showCombo(`${combo} COMBO!!`);
+  else if (combo >= 3) showMsg(`${combo} 콤보!`, 'combo');
+  else showMsg('GOOD', 'good');
+
+  levelUp();
+  updateHUD();
+}
+
+function loseLife(reason) {
+  lives--;
+  combo = 0;
+  showMsg(reason, 'bad');
+  flashMiss();
+  updateHUD();
+  if (lives <= 0) { gameOver('목숨 소진!'); }
+}
+
+function flashMiss() {
+  const el = document.getElementById('miss-flash');
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 180);
+}
+
+function showMsg(txt, cls) {
+  const el = document.getElementById('msg');
+  el.textContent = txt;
+  el.className = cls || '';
+  clearTimeout(msgTimer);
+  msgTimer = setTimeout(() => { el.textContent = ''; el.className = ''; }, 800);
+}
+
+function showCombo(txt) {
+  const el = document.getElementById('combo-pop');
+  el.textContent = txt;
+  el.className = '';
+  void el.offsetWidth;
+  el.className = 'show';
+}
+
+function levelUp() {
+  const newLevel = Math.floor(score / 800) + 1;
+  if (newLevel > level) {
+    level = newLevel;
+    // 레벨이 오를 때마다 속도가 1.1배씩 빨라짐 (시간 간격은 1.1로 나눔)
+    spawnInterval = BASE_INTERVAL / Math.pow(1.05, level - 1);
+    
+    clearInterval(spawnTimer);
+    spawnTimer = setInterval(spawnTile, spawnInterval);
+    showMsg(`레벨 ${level} 업!`, 'combo');
+    updateHUD();
+  }
+}
+
+function gameOver(reason) {
+  running = false;
+  clearInterval(spawnTimer);
+  const ov = document.getElementById('overlay');
+  document.getElementById('overlay-title').textContent = 'GAME OVER';
+  const sc = document.getElementById('overlay-score');
+  sc.style.display = 'block';
+  sc.textContent = score;
+  document.getElementById('overlay-sub').textContent = reason + ' | 최고 레벨: ' + level;
+  document.getElementById('start-btn').textContent = 'RETRY';
+  ov.classList.add('show');
+}
+
+function startGame() {
+  queue = [];
+  counts = {d:0, f:0, j:0, k:0};
+  score = 0; combo = 0; level = 1; lives = MAX_LIVES; tileId = 0;
+  spawnInterval = BASE_INTERVAL; running = true;
+  renderTiles();
+  updateHUD();
+  showMsg('', '');
+  document.getElementById('overlay').classList.remove('show');
+  clearInterval(spawnTimer);
+  spawnTimer = setInterval(spawnTile, spawnInterval);
+}
+
+document.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (KEYS.includes(k)) { e.preventDefault(); pressKey(k); }
+});
+</script>
+</body>
+</html>
