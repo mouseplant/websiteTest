@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Segment Tree Challenge</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #080c14;
+    --bg2: #0d1321;
+    --panel: #111827;
+    --border: #1e2d45;
+    --accent: #00d4ff;
+    --accent2: #00ff9d;
+    --accent3: #ff6b6b;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --glow: 0 0 20px rgba(0,212,255,0.4);
+    --glow2: 0 0 20px rgba(0,255,157,0.4);
+  }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Screens */
+  .screen {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    transform: translateY(12px);
+    z-index: 1;
+  }
+  .screen.active {
+    opacity: 1;
+    pointer-events: all;
+    transform: translateY(0);
+  }
+
+  /* ===== MAIN MENU ===== */
+  .menu-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  .logo-mark {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 6px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    opacity: 0.7;
+  }
+
+  .game-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 52px;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+    text-shadow: 0 0 40px rgba(0,212,255,0.5), 0 0 80px rgba(0,212,255,0.2);
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  .game-title span { color: var(--accent); }
+
+  .game-subtitle {
+    font-size: 14px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-bottom: 50px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* Mini tree preview */
+  .tree-preview {
+    width: 280px;
+    height: 120px;
+    margin-bottom: 44px;
+    opacity: 0.6;
+  }
+
+  /* Menu buttons */
+  .menu-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 280px;
+  }
+
+  .btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 2px;
+    padding: 16px 32px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+    text-transform: uppercase;
+  }
+
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #00b8d9 0%, #00d4ff 50%, #00e5ff 100%);
+    color: #000;
+    font-weight: 700;
+    box-shadow: 0 0 30px rgba(0,212,255,0.4), 0 4px 15px rgba(0,0,0,0.3);
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 50px rgba(0,212,255,0.7), 0 8px 25px rgba(0,0,0,0.4);
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--accent2);
+    border: 1px solid rgba(0,255,157,0.4);
+    box-shadow: inset 0 0 20px rgba(0,255,157,0.05);
+  }
+  .btn-secondary:hover {
+    background: rgba(0,255,157,0.08);
+    border-color: var(--accent2);
+    box-shadow: 0 0 25px rgba(0,255,157,0.3), inset 0 0 20px rgba(0,255,157,0.05);
+    transform: translateY(-2px);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .btn-ghost:hover {
+    color: var(--text);
+    border-color: var(--muted);
+  }
+
+  /* ===== GAME SCREEN ===== */
+  .game-container {
+    width: 940px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 10px;
+  }
+
+  /* Header bar */
+  .game-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+
+  .game-back {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .game-back:hover { color: var(--text); border-color: var(--muted); }
+
+  .game-title-small {
+    font-family: 'Space Mono', monospace;
+    font-size: 16px;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+
+  .stats-row {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+  }
+
+  .stat-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    background: rgba(0,212,255,0.07);
+    border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+  }
+  .stat-chip .label { color: var(--muted); font-size: 10px; letter-spacing: 1px; }
+  .stat-chip .value { color: var(--accent); font-weight: 700; font-size: 16px; }
+
+  /* Progress bar */
+  .progress-wrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 24px;
+  }
+  .progress-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .progress-bar-bg {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 3px;
+    transition: width 0.4s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: 0 0 10px rgba(0,212,255,0.6);
+    width: 0%;
+  }
+
+  /* Problem card */
+  .problem-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+
+  .problem-text {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    flex: 1;
+  }
+  .problem-text .hi { color: var(--accent); font-family: 'Space Mono', monospace; }
+  .problem-text .range {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 12px;
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.3);
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 18px;
+    color: var(--accent);
+  }
+
+  .answer-wrap {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .answer-input {
+    font-family: 'Space Mono', monospace;
+    font-size: 22px;
+    width: 130px;
+    padding: 12px 16px;
+    background: var(--bg2);
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    text-align: center;
+  }
+  .answer-input:focus {
+    border-color: var(--accent);
+    box-shadow: var(--glow);
+  }
+  .answer-input.correct {
+    border-color: var(--accent2);
+    box-shadow: var(--glow2);
+    animation: pulse-correct 0.3s ease;
+  }
+  .answer-input.wrong {
+    border-color: var(--accent3);
+    animation: shake 0.3s ease;
+  }
+
+  @keyframes pulse-correct {
+    0%,100% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+  }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+
+  .btn-check {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 1px;
+    padding: 12px 22px;
+    background: var(--accent);
+    color: #000;
+    font-weight: 700;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-check:hover { background: #33ddff; box-shadow: var(--glow); }
+
+  /* Canvas card */
+  .canvas-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    overflow: hidden;
+  }
+  .canvas-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  #treeCanvas {
+    display: block;
+    border-radius: 6px;
+    background: transparent;
+    width: 100%;
+  }
+
+  /* Array display */
+  .array-display {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .array-cell {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    transition: all 0.3s;
+    font-family: 'Space Mono', monospace;
+  }
+  .array-cell .idx { font-size: 9px; color: var(--muted); }
+  .array-cell .val { font-size: 15px; font-weight: 700; color: var(--text); }
+  .array-cell.in-range {
+    border-color: var(--accent);
+    background: rgba(0,212,255,0.12);
+    box-shadow: 0 0 12px rgba(0,212,255,0.3);
+  }
+  .array-cell.in-range .val { color: var(--accent); }
+
+  /* ===== RANKING SCREEN ===== */
+  .rank-container {
+    width: 600px;
+  }
+
+  .rank-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 30px;
+  }
+
+  .rank-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .rank-title span { color: var(--accent2); }
+
+  .rank-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .rank-table thead tr {
+    border-bottom: 1px solid var(--border);
+  }
+  .rank-table th {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    padding: 10px 16px;
+    text-align: left;
+  }
+
+  .rank-row {
+    border-bottom: 1px solid rgba(30,45,69,0.5);
+    transition: background 0.2s;
+  }
+  .rank-row:hover { background: rgba(0,212,255,0.04); }
+  .rank-row td {
+    padding: 14px 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+  }
+
+  .rank-num {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .rank-num.top1 { color: #ffd700; font-size: 16px; }
+  .rank-num.top2 { color: #c0c0c0; font-size: 14px; }
+  .rank-num.top3 { color: #cd7f32; font-size: 13px; }
+
+  .rank-time { color: var(--accent); font-size: 20px; font-weight: 700; }
+  .rank-date { color: var(--muted); font-size: 12px; }
+
+  .rank-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.2);
+    color: var(--accent);
+    letter-spacing: 1px;
+  }
+
+  .rank-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 1px;
+  }
+
+  /* Result overlay */
+  .result-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(8,12,20,0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s;
+  }
+  .result-overlay.show {
+    opacity: 1;
+    pointer-events: all;
+  }
+  .result-card {
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    border-radius: 16px;
+    padding: 50px 60px;
+    text-align: center;
+    box-shadow: 0 0 80px rgba(0,212,255,0.2);
+    transform: translateY(20px);
+    transition: transform 0.4s;
+  }
+  .result-overlay.show .result-card { transform: translateY(0); }
+
+  .result-emoji { font-size: 60px; margin-bottom: 16px; }
+  .result-heading {
+    font-family: 'Space Mono', monospace;
+    font-size: 32px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+  .result-sub { color: var(--muted); font-size: 14px; margin-bottom: 30px; letter-spacing: 1px; }
+  .result-time-display {
+    font-family: 'Space Mono', monospace;
+    font-size: 64px;
+    font-weight: 700;
+    color: var(--accent);
+    text-shadow: var(--glow);
+    margin-bottom: 6px;
+    line-height: 1;
+  }
+  .result-unit {
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-bottom: 36px;
+  }
+  .result-buttons { display: flex; gap: 12px; justify-content: center; }
+  .result-buttons .btn { min-width: 140px; }
+
+  /* Scanlines effect */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* Floating particles */
+  .particle {
+    position: fixed;
+    width: 2px;
+    height: 2px;
+    background: var(--accent);
+    border-radius: 50%;
+    opacity: 0;
+    animation: float-up linear infinite;
+    pointer-events: none;
+  }
+
+  @keyframes float-up {
+    0% { opacity: 0; transform: translateY(0) translateX(0); }
+    10% { opacity: 0.6; }
+    90% { opacity: 0.2; }
+    100% { opacity: 0; transform: translateY(-80vh) translateX(var(--dx)); }
+  }
+
+  /* Responsive */
+  @media (max-width: 960px) {
+    .game-container { width: 98vw; }
+    .game-title { font-size: 36px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Particles -->
+<div id="particles"></div>
+
+<!-- SCREEN: Main Menu -->
+<div class="screen active" id="screen-menu">
+  <div class="menu-wrap">
+    <div class="logo-mark">// Segment Tree Challenge //</div>
+    <div class="game-title">SEG<span>TREE</span></div>
+    <div class="game-subtitle">RANGE SUM · SPEED · CHALLENGE</div>
+
+    <canvas class="tree-preview" id="menuCanvas" width="280" height="120"></canvas>
+
+    <div class="menu-buttons">
+      <button class="btn btn-primary" onclick="goTo('game'); startGame()">▶ 게임 시작</button>
+      <button class="btn btn-secondary" onclick="goTo('rank')">🏆 랭킹 보기</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: Game -->
+<div class="screen" id="screen-game">
+  <div class="game-container">
+    <!-- Header -->
+    <div class="game-header">
+      <button class="game-back" onclick="confirmBack()">← 메인으로</button>
+      <div class="game-title-small">SEGTREE</div>
+      <div class="stats-row">
+        <div class="stat-chip">
+          <span class="label">ROUND</span>
+          <span class="value" id="stat-round">0/10</span>
+        </div>
+        <div class="stat-chip">
+          <span class="label">TIME</span>
+          <span class="value" id="stat-timer">0.00<small style="font-size:10px;color:var(--muted)">s</small></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap">
+      <div class="progress-label">진행도 — <span id="prog-text">0 / 10 완료</span></div>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="prog-bar"></div></div>
+    </div>
+
+    <!-- Problem -->
+    <div class="problem-card">
+      <div class="problem-text" id="problem-text">준비 중...</div>
+      <div class="answer-wrap">
+        <input type="number" class="answer-input" id="answer-input"
+          placeholder="?" autocomplete="off"
+          onkeypress="if(event.keyCode==13) checkAnswer()"
+          oninput="clearFeedback()">
+        <button class="btn-check" onclick="checkAnswer()">확인</button>
+      </div>
+    </div>
+
+    <!-- Tree Canvas -->
+    <div class="canvas-card">
+      <div class="canvas-label">// Segment Tree Visualization</div>
+      <canvas id="treeCanvas" height="300"></canvas>
+      <div class="array-display" id="array-display"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: Ranking -->
+<div class="screen" id="screen-rank">
+  <div class="rank-container">
+    <div class="rank-header">
+      <div>
+        <div class="rank-title">TOP <span>10</span></div>
+        <div style="font-size:12px;color:var(--muted);letter-spacing:2px;font-family:'Space Mono',monospace;margin-top:4px">LEADERBOARD</div>
+      </div>
+      <button class="btn btn-ghost" onclick="goTo('menu')">← 뒤로</button>
+    </div>
+    <table class="rank-table">
+      <thead>
+        <tr>
+          <th style="width:60px">RANK</th>
+          <th>TIME</th>
+          <th>DATE</th>
+          <th>BADGE</th>
+        </tr>
+      </thead>
+      <tbody id="rank-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Result Overlay -->
+<div class="result-overlay" id="result-overlay">
+  <div class="result-card">
+    <div class="result-emoji">⚡</div>
+    <div class="result-heading">완료!</div>
+    <div class="result-sub">10문제 모두 해결했습니다</div>
+    <div class="result-time-display" id="result-time">0.00</div>
+    <div class="result-unit">SECONDS</div>
+    <div class="result-buttons">
+      <button class="btn btn-primary" onclick="closeResultAndRestart()">다시 도전</button>
+      <button class="btn btn-secondary" onclick="closeResultGoRank()">랭킹 보기</button>
+      <button class="btn btn-ghost" onclick="closeResultGoMenu()">메인 메뉴</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let data = [], tree = [];
+let currentProblem = 0, targetSum = 0;
+let queryLeft = 0, queryRight = 0;
+let startTime, timerInterval;
+let gameActive = false;
+
+// ── Screen navigation ──────────────────────────────────────────────────────
+function goTo(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  if (id === 'rank') renderRankTable();
+  if (id === 'menu') drawMenuTree();
+}
+
+function confirmBack() {
+  if (gameActive) {
+    if (!confirm('게임을 종료하고 메인 메뉴로 돌아갈까요?')) return;
+    clearInterval(timerInterval);
+    gameActive = false;
+  }
+  goTo('menu');
+}
+
+// ── Particles ──────────────────────────────────────────────────────────────
+(function spawnParticles() {
+  const wrap = document.getElementById('particles');
+  for (let i = 0; i < 20; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = Math.random() * 100 + 'vw';
+    p.style.bottom = '-4px';
+    p.style.animationDuration = (8 + Math.random() * 12) + 's';
+    p.style.animationDelay = (Math.random() * 15) + 's';
+    p.style.setProperty('--dx', (Math.random() * 80 - 40) + 'px');
+    if (Math.random() > 0.5) p.style.background = 'var(--accent2)';
+    wrap.appendChild(p);
+  }
+})();
+
+// ── Segment Tree ───────────────────────────────────────────────────────────
+function buildTree(arr, node, start, end) {
+  if (start === end) {
+    tree[node] = { val: arr[start], start, end };
+    return tree[node].val;
+  }
+  let mid = Math.floor((start + end) / 2);
+  let lv = buildTree(arr, node * 2, start, mid);
+  let rv = buildTree(arr, node * 2 + 1, mid + 1, end);
+  tree[node] = { val: lv + rv, start, end };
+  return tree[node].val;
+}
+
+// ── Game logic ─────────────────────────────────────────────────────────────
+function startGame() {
+  data = Array.from({ length: 8 }, () => Math.floor(Math.random() * 20) + 1);
+  tree = [];
+  buildTree(data, 1, 0, data.length - 1);
+  currentProblem = 0;
+  gameActive = true;
+  clearInterval(timerInterval);
+
+  updateProgress(0);
+  renderArrayDisplay();
+  drawTree(canvas(), -1, -1);
+  nextProblem();
+  startTimer();
+  document.getElementById('answer-input').focus();
+}
+
+function nextProblem() {
+  if (currentProblem >= 10) { endGame(); return; }
+  currentProblem++;
+
+  queryLeft = Math.floor(Math.random() * data.length);
+  queryRight = Math.floor(Math.random() * (data.length - queryLeft)) + queryLeft;
+
+  targetSum = 0;
+  for (let i = queryLeft; i <= queryRight; i++) targetSum += data[i];
+
+  document.getElementById('problem-text').innerHTML =
+    `인덱스 <span class="range">${queryLeft}</span> 부터 <span class="range">${queryRight}</span> 까지의 <strong style="color:var(--accent)">구간 합</strong>은?`;
+
+  document.getElementById('stat-round').textContent = currentProblem + '/10';
+  document.getElementById('answer-input').value = '';
+  document.getElementById('answer-input').className = 'answer-input';
+
+  updateProgress(currentProblem - 1);
+  renderArrayDisplay();
+  drawTree(canvas(), queryLeft, queryRight);
+}
+
+function checkAnswer() {
+  if (!gameActive) return;
+  const inp = document.getElementById('answer-input');
+  const val = parseInt(inp.value);
+  if (isNaN(val)) return;
+
+  if (val === targetSum) {
+    inp.className = 'answer-input correct';
+    setTimeout(() => nextProblem(), 200);
+  } else {
+    inp.className = 'answer-input wrong';
+    setTimeout(() => { inp.className = 'answer-input'; }, 400);
+  }
+}
+
+function clearFeedback() {
+  document.getElementById('answer-input').className = 'answer-input';
+}
+
+function startTimer() {
+  startTime = Date.now();
+  timerInterval = setInterval(() => {
+    if (!gameActive) return;
+    const e = (Date.now() - startTime) / 1000;
+    document.getElementById('stat-timer').innerHTML =
+      e.toFixed(2) + '<small style="font-size:10px;color:var(--muted)">s</small>';
+  }, 50);
+}
+
+function endGame() {
+  clearInterval(timerInterval);
+  gameActive = false;
+  updateProgress(10);
+  const finalTime = parseFloat(((Date.now() - startTime) / 1000).toFixed(2));
+  document.getElementById('stat-timer').innerHTML =
+    finalTime + '<small style="font-size:10px;color:var(--muted)">s</small>';
+  saveRecord(finalTime);
+  showResult(finalTime);
+}
+
+function updateProgress(n) {
+  const pct = (n / 10) * 100;
+  document.getElementById('prog-bar').style.width = pct + '%';
+  document.getElementById('prog-text').textContent = n + ' / 10 완료';
+}
+
+// ── Result overlay ─────────────────────────────────────────────────────────
+function showResult(t) {
+  document.getElementById('result-time').textContent = t.toFixed(2);
+  document.getElementById('result-overlay').classList.add('show');
+}
+
+function hideResult() {
+  document.getElementById('result-overlay').classList.remove('show');
+}
+
+function closeResultAndRestart() {
+  hideResult();
+  startGame();
+}
+
+function closeResultGoRank() {
+  hideResult();
+  goTo('rank');
+}
+
+function closeResultGoMenu() {
+  hideResult();
+  goTo('menu');
+}
+
+// ── Array display ──────────────────────────────────────────────────────────
+function renderArrayDisplay() {
+  const wrap = document.getElementById('array-display');
+  wrap.innerHTML = '';
+  data.forEach((v, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'array-cell' + (i >= queryLeft && i <= queryRight ? ' in-range' : '');
+    cell.innerHTML = `<span class="idx">[${i}]</span><span class="val">${v}</span>`;
+    wrap.appendChild(cell);
+  });
+}
+
+// ── Tree drawing ───────────────────────────────────────────────────────────
+function canvas() { return document.getElementById('treeCanvas'); }
+
+function isInRange(node, ql, qr) {
+  if (!tree[node]) return false;
+  const { start, end } = tree[node];
+  return start <= qr && end >= ql;
+}
+
+function drawTree(cvs, ql, qr) {
+  const W = cvs.parentElement.clientWidth - 40;
+  cvs.width = W;
+  const ctx = cvs.getContext('2d');
+  ctx.clearRect(0, 0, cvs.width, cvs.height);
+  if (!tree[1]) return;
+  drawNode(ctx, 1, W / 2, 36, W / 4.5, ql, qr);
+}
+
+function drawNode(ctx, node, x, y, xOff, ql, qr) {
+  if (!tree[node]) return;
+  const highlighted = ql !== -1 && isInRange(node, ql, qr);
+
+  // Draw children lines first
+  if (tree[node * 2]) {
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x - xOff, y + 68);
+    ctx.strokeStyle = highlighted && isInRange(node * 2, ql, qr)
+      ? 'rgba(0,212,255,0.6)' : 'rgba(30,45,69,0.9)';
+    ctx.lineWidth = highlighted && isInRange(node * 2, ql, qr) ? 2 : 1;
+    ctx.stroke();
+    drawNode(ctx, node * 2, x - xOff, y + 68, xOff / 2, ql, qr);
+  }
+  if (tree[node * 2 + 1]) {
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + xOff, y + 68);
+    ctx.strokeStyle = highlighted && isInRange(node * 2 + 1, ql, qr)
+      ? 'rgba(0,212,255,0.6)' : 'rgba(30,45,69,0.9)';
+    ctx.lineWidth = highlighted && isInRange(node * 2 + 1, ql, qr) ? 2 : 1;
+    ctx.stroke();
+    drawNode(ctx, node * 2 + 1, x + xOff, y + 68, xOff / 2, ql, qr);
+  }
+
+  // Node circle
+  const r = 22;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+
+  if (highlighted) {
+    ctx.fillStyle = 'rgba(0,212,255,0.18)';
+    ctx.fill();
+    ctx.strokeStyle = '#00d4ff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Glow
+    ctx.save();
+    ctx.shadowColor = '#00d4ff';
+    ctx.shadowBlur = 14;
+    ctx.strokeStyle = '#00d4ff';
+    ctx.stroke();
+    ctx.restore();
+  } else {
+    ctx.fillStyle = '#111827';
+    ctx.fill();
+    ctx.strokeStyle = '#1e2d45';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  // Value text
+  ctx.font = 'bold 13px Space Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = highlighted ? '#00d4ff' : '#e2e8f0';
+  ctx.fillText(tree[node].val, x, y + 1);
+
+  // Range label
+  ctx.font = '9px Space Mono, monospace';
+  ctx.fillStyle = highlighted ? 'rgba(0,212,255,0.7)' : '#64748b';
+  ctx.fillText(`[${tree[node].start}…${tree[node].end}]`, x, y + 15);
+}
+
+// ── Menu decorative tree ───────────────────────────────────────────────────
+function drawMenuTree() {
+  const cvs = document.getElementById('menuCanvas');
+  const ctx = cvs.getContext('2d');
+  ctx.clearRect(0, 0, cvs.width, cvs.height);
+  const demo = [10, 3, 15, 7, 8, 12, 5, 9];
+  const dt = [];
+  function bt(arr, n, s, e) {
+    if (s === e) { dt[n] = { val: arr[s], s, e }; return dt[n].val; }
+    const m = Math.floor((s + e) / 2);
+    const lv = bt(arr, n * 2, s, m);
+    const rv = bt(arr, n * 2 + 1, m + 1, e);
+    dt[n] = { val: lv + rv, s, e };
+    return dt[n].val;
+  }
+  bt(demo, 1, 0, 7);
+
+  function dn(n, x, y, xo) {
+    if (!dt[n]) return;
+    if (dt[n * 2]) {
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - xo, y + 38);
+      ctx.strokeStyle = 'rgba(0,212,255,0.2)'; ctx.lineWidth = 1; ctx.stroke();
+      dn(n * 2, x - xo, y + 38, xo / 2);
+    }
+    if (dt[n * 2 + 1]) {
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + xo, y + 38);
+      ctx.strokeStyle = 'rgba(0,212,255,0.2)'; ctx.lineWidth = 1; ctx.stroke();
+      dn(n * 2 + 1, x + xo, y + 38, xo / 2);
+    }
+    ctx.beginPath(); ctx.arc(x, y, 13, 0, Math.PI * 2);
+    ctx.fillStyle = '#111827'; ctx.fill();
+    ctx.strokeStyle = 'rgba(0,212,255,0.4)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.font = 'bold 9px Space Mono, monospace';
+    ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,212,255,0.7)';
+    ctx.fillText(dt[n].val, x, y + 4);
+  }
+  dn(1, 140, 16, 62);
+}
+
+drawMenuTree();
+
+// ── Cookie storage ─────────────────────────────────────────────────────────
+function saveRecord(time) {
+  let recs = getRecords();
+  recs.push({ time, date: new Date().toLocaleDateString('ko-KR') });
+  recs.sort((a, b) => a.time - b.time);
+  recs = recs.slice(0, 10);
+  document.cookie = 'stRank=' + JSON.stringify(recs) + ';path=/;max-age=' + 60 * 60 * 24 * 30;
+}
+
+function getRecords() {
+  const c = document.cookie.split('; ').find(r => r.startsWith('stRank='));
+  if (!c) return [];
+  try { return JSON.parse(c.split('=').slice(1).join('=')); } catch { return []; }
+}
+
+// ── Rank table ─────────────────────────────────────────────────────────────
+function renderRankTable() {
+  const recs = getRecords();
+  const tbody = document.getElementById('rank-body');
+  if (!recs.length) {
+    tbody.innerHTML = `<tr><td colspan="4" class="rank-empty">아직 기록이 없습니다.<br>첫 도전을 시작해보세요!</td></tr>`;
+    return;
+  }
+  const medals = ['🥇', '🥈', '🥉'];
+  const classes = ['top1', 'top2', 'top3'];
+  tbody.innerHTML = recs.map((r, i) => {
+    const medal = medals[i] || (i + 1);
+    const cls = classes[i] || 'rank-num';
+    let badge = '';
+    if (r.time < 30) badge = '<span class="rank-badge">⚡ LIGHTNING</span>';
+    else if (r.time < 60) badge = '<span class="rank-badge">🔥 FAST</span>';
+    else badge = '<span class="rank-badge">✔ CLEAR</span>';
+    return `<tr class="rank-row">
+      <td><span class="${cls}">${medal}</span></td>
+      <td class="rank-time">${r.time.toFixed(2)}<span style="font-size:11px;color:var(--muted)"> s</span></td>
+      <td class="rank-date">${r.date}</td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join('');
+}
+</script>
+</body>
+</html>
